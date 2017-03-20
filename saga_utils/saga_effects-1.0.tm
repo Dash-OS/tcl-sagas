@@ -302,14 +302,14 @@ class@ create ::saga::effects {
     if { ! [info exists POOL] } { set POOL [dict create] }
     set pool_id [my$S BuildPoolID $child]
     set n    [ llength $pool_args ]
-    set args [ lassign $args pool_body agg_var aggregator]
+    set args [ lassign $args pool_body aggregator]
     dict set POOL [namespace tail $pool_id] info n $n
-    if { $agg_var ne {} && $aggregator ne {} } {
+    if { $aggregator ne {} } {
       dict set POOL [namespace tail $pool_id] info [dict create \
-        va   [string trim $agg_var] \
         ag   $aggregator \
         n    $n \
-        pa   $pool_args
+        pa   $pool_args \
+        pc   $pool_context
       ]
     }
     set i 1
@@ -329,17 +329,17 @@ class@ create ::saga::effects {
       set results [dict get $POOL $pool_id results]
       if { [dict size $results] >= $n } {
         if { [dict exists $POOL $pool_id info ag] } {
-          set agg_id [my$S PoolAggID $child]
-          set arg    [dict get $POOL $pool_id info va]
-          set script [dict get $POOL $pool_id info ag]
+          set agg_id    [my$S PoolAggID $child]
+          set script    [dict get $POOL $pool_id info ag]
           set pool_args [dict get $POOL $pool_id info pa]
+          set options   [dict get $POOL $pool_id info pc]
           dict unset POOL $pool_id
           set i 0
           foreach pool_arg $pool_args {
             incr i 
             dict set results $i args $pool_arg
           }
-          my$S fork $uid $agg_id [dict create $arg $results pool_id $pool_id pool_n $n] $script
+          my$S fork $uid $agg_id [dict create results $results options $options pool_id $pool_id] $script
         }
       }
     }
@@ -450,7 +450,12 @@ class@ create ::saga::effects {
   # It is important to understand the difference of [saga uplevel] vs [uplevel].  As
   # our execution is asynchronous as we nest each level deeper, a [saga uplevel] command
   # would potentially be evaluating the given script at any point in its evaluation.
-  method uplevel { uid child n body } {
+  method uplevel { uid child args } {
+    lassign $args n body
+    if { $body eq {} } {
+      set body $n
+      set n 1
+    }
     tailcall my$S eval $uid $child [my$S Path_Level $child $n] $body
   }
   
@@ -467,7 +472,7 @@ class@ create ::saga::effects {
   # mutating values within $script could result in bugs which are not easy to understand.
   method eval { uid child target script } { 
     dict unset AFTER_IDS $uid
-    return [ coro eval $target $script ] 
+    tailcall coro eval $target $script
   }
   
   # saga complete
@@ -484,7 +489,6 @@ class@ create ::saga::effects {
   # execution at the point in-which [saga complete] was called until any/all children
   # have completed as well.
   method complete { uid child {force_kill 0} args } {
-    puts "Complete $child"
     my$S Set_Task $child info done 1
     if { $force_kill } {
       my$S kill $uid $child
@@ -515,10 +519,8 @@ class@ create ::saga::effects {
   # coroutine all together, remove the coroutine from our $TASKS, then check to see 
   # if we can then kill the parent.
   method kill { uid child args } {
-    puts "Kill $child"
     rename $child {}
     my$S Remove_Task $child
-    puts $TASKS
   }
   
 }

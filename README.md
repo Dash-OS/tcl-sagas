@@ -91,3 +91,134 @@ saga run {
 
 
 ```
+
+## Saga Pool Example
+
+```tcl
+package require saga
+
+saga run HTTP {
+  
+  # Create our default arguments which can be retrieved from our asynchronous
+  # workers as-needed.
+  set DefaultOptions [dict create \
+    timeout 10000
+  ]
+  
+  # Our RequestHandler is the body that we will fork when the pool is called. 
+  # Each element in the list will be simultaneously forked and we will await 
+  # the results from all before continuing.
+  set RequestHandler {
+    try {
+      if { ! [info exists url] } {
+        saga resolve error "No URL Provided"
+      } else {
+        # We are able to handle the HTTP Request similarly to how we would if
+        # we were doing so synchronously.
+        set token [::http::geturl $url -command [saga self] -timeout $timeout]
+        # Pause and wait for the http request to complete (or timeout)
+        saga await
+        set status [::http::status $token]
+        set ncode  [::http::ncode  $token]
+        # For the example we will just capture the status
+        saga resolve $status $ncode {Data Would Be Here}
+      }
+    } trap cancel { reason } {
+      saga resolve cancelled $reason
+    } on error { result options } {
+      saga resolve error $result $options
+    } finally {
+      if { [info exists token] } {
+        ::http::cleanup $token
+      }
+    }
+  }
+  
+  # Our ResultHandler will receive the aggregated results once all the members of 
+  # the given pool have resolved their responses.
+  set ResultHandler {
+    if { [dict exists $options callback] } {
+      after 0 [list [dict get $options callback] $results $options] 
+    }
+  }
+  
+  set cancelled 0
+  
+  # Our while loop will allow us to continuously take REQUEST events then generate
+  # the pooled results from there.
+  while { ! $cancelled } {
+    try {
+      saga take REQUEST {
+        # Each time a REQUEST is dispatched, we will receive the arguments 
+        # in the $REQUEST variable.  In this case we expect two arguments where 
+        # the first are options for the pool (which replace the $RequestContext) 
+        # and the second is a list of requests to make (each in their own saga).
+        lassign $REQUEST options requests
+        
+        # There are a few ways we can get the variables from our parent context. 
+        # Below we are using [saga uplevel] to evaluate and grab them.  We could
+        # also use [saga variable] or [saga upvar].
+        set request_args [ lassign [saga uplevel {
+          list $DefaultOptions $RequestHandler $ResultHandler
+        }] default_options ]
+        
+        # Now we are ready to start our pool.  We merge the request options with the
+        # default then feed in the rest of the arguments to start the pool.  
+        saga pool $requests [dict merge $default_options $options] {*}$request_args
+        
+        # We are free to do whatever else, [saga pool] is handled asynchronously
+        # so this will occur immediately after the command above.
+      }
+      
+      # After each request is received we want to again take REQUEST so that 
+      # we can continuously handle requests.
+      
+    } trap cancel { reason } {
+      # trap cancel allows us to conduct logic should we get cancelled for any
+      # reason.  In this case we will simply graciously exit the while loop.
+      set cancelled 1
+    } on error {result options} {
+      puts "Error! $result"
+    }
+  }
+
+}
+
+# Our results proc will be called by the saga whenever results are made availble.
+# We define this through the "options" dict's callback key.
+proc results {results options} {
+  puts "Request Results Received!"
+  puts "Results: $results"
+  puts "Options: $options"
+}
+
+# With [saga pool], each element should be a dict where the keys will become
+# variables within the forked context.  For each dict that is received, a 
+# forked saga will be created.  Our result handler will be called once 
+# all requests have completed and are available.  
+#
+# We can setup multiple forks as we are continually servicing the [saga take] 
+# in a loop until we are explicitly cancelled.
+saga dispatch HTTP REQUEST [dict create \
+  timeout 5000 \
+  callback results
+] [list \
+  [dict create url http://www.google.com] \
+  [dict create url http://www.bing.com]
+]
+  
+saga dispatch HTTP REQUEST [dict create callback results] [list \
+  [dict create url http://www.yahoo.com] \
+  [dict create url http://www.bing.com]
+]
+
+# Request Results Received!
+# Results: 1 {result {ok 200 {Data Would Be Here}} args {url http://www.google.com}} 
+#          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
+# Options: timeout 5000 callback results
+#
+# Request Results Received!
+# Results: 1 {result {ok 301 {Data Would Be Here}} args {url http://www.yahoo.com}} 
+#          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
+# Options: timeout 10000 callback results
+```

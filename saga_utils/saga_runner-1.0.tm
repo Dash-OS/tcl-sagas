@@ -181,7 +181,7 @@ class@ create ::saga::context {
     while 1 {
       try {
         if { ! [string equal $response $S ] } {
-          set args [ lassign {*}[::yieldto $child $response] child uid cmd ]
+          set args [ lassign {*}[::yieldto $child {*}$response] child uid cmd ]
         } else {
           set args [ lassign [::yield] child uid cmd ]
         }
@@ -246,10 +246,16 @@ class@ create ::saga::context {
   }
   
   method Path_Level { start n } {
-    tailcall string cat \
+    set path [lrange [my$S Path $start] 0 end-$n]
+    while { ! [string is entier [lindex $path end]] } {
+      set path [lrange $path 0 end-$n]
+    }
+    set path [ string cat \
       [namespace qualifiers $start] :: \
-      [join [list 1 {*}[lrange [my$S Path $start] 1 end-$n] ] _] \
+      [join $path _] \
       $S
+    ]
+    return $path
   }
   
   method Task_Path { child } {
@@ -308,8 +314,6 @@ class@ create ::saga::context {
     set pool_id [lindex $tail $e]
     lassign [split $pool_id -] pool_id pool_n
     set pool_id [join [list {*}[lrange $tail 0 [expr { $e - 1 }]] $pool_id] _]
-    puts $pool_id
-    puts $pool_n
     return [list $pool_id $pool_n]
   }
   
@@ -319,8 +323,8 @@ class@ create ::saga::context {
   
   method PoolAggID { child } {
     set tail [split [string map [list $S {}] [namespace tail $child]] _]
-    set e [lsearch $tail pool]
-    set agg_id [join [lrange $tail 0 [expr { $e + 1 }]] _]
+    set e    [lsearch -glob $tail pool*]
+    set agg_id [join [lrange $tail 0 $e] _]
     append agg_id _ agg
     return $agg_id
   }

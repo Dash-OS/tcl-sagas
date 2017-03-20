@@ -40,11 +40,13 @@ proc ::coro::inject { coro script } {
 # As an example, if we want to get the value of a variable in the coro context:
 # set value [coro eval mycoro { set myvar }]
 proc ::coro::eval { coro script } {
-  uplevel 1 [format {%s;%s} \
+  tailcall try [join [list \
     [list ::tcl::unsupported::inject $coro try [format { ::yield [try {%s} on error {} {}] } $script]] \
     $coro
-  ]
+  ] \;]
 }
+
+
 
 # coro yields one two three -> yield [list one two three]
 proc ::coro::yields args { tailcall ::yield $args }
