@@ -325,12 +325,16 @@ class@ create ::saga::effects {
   
   method vwait_resolve { uid child vname fork args } {
     nsvar@$S [self] $vname
-    trace remove variable $vname write [list [namespace current]::my$S vwait_resolve $uid $child $vname $args]
+    trace remove variable $vname write [list [namespace current]::my$S vwait_resolve $uid $child $vname $fork]
     if { $fork ne {} } {
-      set fork [lassign $fork context]
-      my$S fork $uid $child [dict merge \
-        $context [dict create $vname [set $vname]]
-      ] {*}$fork
+      if { [llength $fork] == 1 } {
+        my$S fork $uid $child [dict create $vname [set $vname]] {*}$fork
+      } else {
+        set fork [lassign $fork context]
+        my$S fork $uid $child [dict merge \
+          $context [dict create $vname [set $vname]] $msg $value]
+        ] {*}$fork 
+      }
     }
     # we call the child synchronously within the callback so that they can schedule
     # a new vwait if required.  If we don't do this then we would miss sets done in 
