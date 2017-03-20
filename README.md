@@ -48,7 +48,9 @@ saga run {
     saga variable foo
     set foo "Hi from Fork Two!"
     set foo "Hi Again!"
-    saga wait 1 second
+    # Almost every command in a saga is cooperative to the rest.  When you suspend 
+    # in one fork, another will be serviced until we need to wake it up again.
+    saga wait 1 second ; # [saga wait 1000] works just fine as well.
     set foo "And Again!"
   }
   
@@ -59,12 +61,33 @@ saga run {
     set foo "Hey from Fork Three!"
   }
   
+  # This pattern provides many interesting possiblities. Note that these are asynchronous
+  # but they still can do things like:
+  set bar "Hello"
+  
+  saga fork {
+    saga upvar bar
+    puts "bar is $bar"
+    # We can fork as often as needed 
+    saga fork {
+      saga fork {
+        # Our context will remain the same.  
+        saga variable foo
+        puts "Foo is currently $foo"
+        puts "Hello from a Deeply Forked Family Member!"
+      }
+    }
+  }
 }
 
-# saga variable foo set to Hi Fork One!
+# bar is Hello
+# saga variable foo set to Hi from Fork Two!
 # saga variable foo set to Hi Again!
-# saga variable foo set to Hey from Fork Two!
+# saga variable foo set to Hey from Fork Three!
+# Foo is currently Hey from Fork Three!
+# Hello from a Deeply Forked Family Member!
 # saga variable foo set to And Again!
+
 
 
 ```

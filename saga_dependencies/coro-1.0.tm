@@ -22,7 +22,7 @@ proc ::coro::method { name method args } {
 # independent of its creator.
 proc ::coro::sleep { {n 0} } {
   after $n [list catch [list [info coroutine]]]
-  tailcall yield [info coroutine]
+  tailcall ::yield [info coroutine]
 }
 
 # inject a script into a coroutine to be executed upon the next time it wakes
@@ -41,13 +41,13 @@ proc ::coro::inject { coro script } {
 # set value [coro eval mycoro { set myvar }]
 proc ::coro::eval { coro script } {
   uplevel 1 [format {%s;%s} \
-    [list ::tcl::unsupported::inject $coro try [format { yield [try {%s} on error {} {}] } $script]] \
+    [list ::tcl::unsupported::inject $coro try [format { ::yield [try {%s} on error {} {}] } $script]] \
     $coro
   ]
 }
 
 # coro yields one two three -> yield [list one two three]
-proc ::coro::yields args { tailcall yield $args }
+proc ::coro::yields args { tailcall ::yield $args }
 
 # Runs a simple check to see if the coroutine exists or not.  
 proc ::coro::exists { coro } { tailcall expr [format { [info commands {%s}] ne {} } $coro] }
