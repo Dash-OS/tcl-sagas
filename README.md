@@ -120,6 +120,7 @@ saga run HTTP {
   # the results from all before continuing.
   set RequestHandler {
     try {
+      puts "[clock milliseconds] | $pool_id-$pool_n | Request Handler Starts"
       if { ! [info exists url] } {
         saga resolve error "No URL Provided"
       } else {
@@ -128,6 +129,7 @@ saga run HTTP {
         set token [::http::geturl $url -command [saga self] -timeout $timeout]
         # Pause and wait for the http request to complete (or timeout)
         saga await
+        puts "[clock milliseconds] | $pool_id-$pool_n | Request Handler - Response Received"
         set status [::http::status $token]
         set ncode  [::http::ncode  $token]
         # For the example we will just capture the status
@@ -222,6 +224,17 @@ saga dispatch HTTP REQUEST [dict create callback results] [list \
   [dict create url http://www.bing.com]
 ]
 
+###### Example Output
+#
+# 1490052277036 | 1_2_pool4-1 | Request Handler Starts
+# 1490052277042 | 1_2_pool4-2 | Request Handler Starts
+# 1490052277044 | 1_3_pool7-1 | Request Handler Starts
+# 1490052277048 | 1_3_pool7-2 | Request Handler Starts
+# 1490052277105 | 1_2_pool4-1 | Request Handler - Response Received
+# 1490052277113 | 1_3_pool7-1 | Request Handler - Response Received
+# 1490052277128 | 1_2_pool4-2 | Request Handler - Response Received
+# 1490052277132 | 1_3_pool7-2 | Request Handler - Response Received
+#
 # Request Results Received!
 # Results: 1 {result {ok 200 {Data Would Be Here}} args {url http://www.google.com}} 
 #          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
@@ -231,4 +244,5 @@ saga dispatch HTTP REQUEST [dict create callback results] [list \
 # Results: 1 {result {ok 301 {Data Would Be Here}} args {url http://www.yahoo.com}} 
 #          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
 # Options: timeout 10000 callback results
+#
 ```
