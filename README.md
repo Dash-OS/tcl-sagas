@@ -107,7 +107,11 @@ the complexity they may normally require.
 ```tcl
 package require saga
 
+puts "[clock milliseconds] | Running the Saga!"
+
 saga run HTTP {
+  
+  puts "[clock milliseconds] | Saga Starts Evaluation"
   
   # Create our default arguments which can be retrieved from our asynchronous
   # workers as-needed.
@@ -199,9 +203,12 @@ saga run HTTP {
 # Our results proc will be called by the saga whenever results are made availble.
 # We define this through the "options" dict's callback key.
 proc results {results options} {
-  puts "Request Results Received!"
+  puts "------------------------------------------------"
+  puts "[clock milliseconds] | Results Callback Received"
+  puts "------------------------------------------------"
   puts "Results: $results"
   puts "Options: $options"
+  puts "------------------------------------------------"
 }
 
 # With [saga pool], each element should be a dict where the keys will become
@@ -211,6 +218,9 @@ proc results {results options} {
 #
 # We can setup multiple forks as we are continually servicing the [saga take] 
 # in a loop until we are explicitly cancelled.
+
+puts "[clock milliseconds] | Starting Request Dispatches"
+
 saga dispatch HTTP REQUEST [dict create \
   timeout 5000 \
   callback results
@@ -224,25 +234,30 @@ saga dispatch HTTP REQUEST [dict create callback results] [list \
   [dict create url http://www.bing.com]
 ]
 
-###### Example Output
-#
-# 1490052277036 | 1_2_pool4-1 | Request Handler Starts
-# 1490052277042 | 1_2_pool4-2 | Request Handler Starts
-# 1490052277044 | 1_3_pool7-1 | Request Handler Starts
-# 1490052277048 | 1_3_pool7-2 | Request Handler Starts
-# 1490052277105 | 1_2_pool4-1 | Request Handler - Response Received
-# 1490052277113 | 1_3_pool7-1 | Request Handler - Response Received
-# 1490052277128 | 1_2_pool4-2 | Request Handler - Response Received
-# 1490052277132 | 1_3_pool7-2 | Request Handler - Response Received
-#
-# Request Results Received!
-# Results: 1 {result {ok 200 {Data Would Be Here}} args {url http://www.google.com}} 
-#          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
-# Options: timeout 5000 callback results
-#
-# Request Results Received!
+# 1490052688335 | Running the Saga!
+# 1490052688336 | Starting Request Dispatches
+# 1490052688336 | Saga Starts Evaluation
+# 1490052688338 | 1_2_pool4-1 | Request Handler Starts
+# 1490052688346 | 1_2_pool4-2 | Request Handler Starts
+# 1490052688347 | 1_3_pool7-1 | Request Handler Starts
+# 1490052688351 | 1_3_pool7-2 | Request Handler Starts
+# 1490052688406 | 1_2_pool4-1 | Request Handler - Response Received
+# 1490052688419 | 1_3_pool7-1 | Request Handler - Response Received
+# 1490052688437 | 1_3_pool7-2 | Request Handler - Response Received
+# ------------------------------------------------
+# 1490052688438 | Results Callback Received
+# ------------------------------------------------
 # Results: 1 {result {ok 301 {Data Would Be Here}} args {url http://www.yahoo.com}} 
 #          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
 # Options: timeout 10000 callback results
+# ------------------------------------------------
+# 1490052688446 | 1_2_pool4-2 | Request Handler - Response Received
+# ------------------------------------------------
+# 1490052688448 | Results Callback Received
+# ------------------------------------------------
+# Results: 1 {result {ok 200 {Data Would Be Here}} args {url http://www.google.com}} 
+#          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
+# Options: timeout 5000 callback results
+# ------------------------------------------------
 #
 ```
