@@ -58,7 +58,7 @@ class@ create ::saga::runner {
     # Call our static proc to register this instance with the classes registry.
     static register $NAME [self]
     # asynchronously start the saga
-    after 0 [list catch [list [namespace current]::my start $body {*}$args] ]
+    my start $body {*}$args
   }
   
   destructor {
@@ -101,6 +101,7 @@ class@ create ::saga::context {
   # a [dict] which holds information on every forked task.  This is how we identify
   # and handle cancellation and cleanup. 
   variable TASKS
+  variable POOL
   
   
   constructor {s r ns body args} {
@@ -139,6 +140,13 @@ class@ create ::saga::context {
     
   }
   
+  destructor {
+    if { $TASKS ne {} } { my$S cancel_all }
+    dict for {k v} $AFTER_IDS { after cancel $v }
+    namespace delete c {}
+    rename coordinator$S {}
+  }
+  
   method yield args {
     throw error "Sagas should never call yield or yieldto.  Use the appropriate \[saga\] commands instead.  You likely should be calling \[saga await\], or \[saga wait\]"
   }
@@ -170,7 +178,6 @@ class@ create ::saga::context {
   method saga args {
     set response {}
     lassign [ ::yield ] child path
-    set e 0
     while 1 {
       try {
         if { ! [string equal $response $S ] } {
@@ -193,20 +200,13 @@ class@ create ::saga::context {
         puts $options
       }
     }
-    # We should never reach here unless we died
+    # We should never reach here unless we died or were cancelled.
     catch { [self] destroy }
-  }
-  
-  destructor {
-    if { $TASKS ne {} } { my$S cancel_all }
-    dict for {k v} $AFTER_IDS { after cancel $v }
-    namespace delete c {}
-    rename coordinator$S {}
   }
   
   method cmdlist args { join $args \; }
   
-  # TODO: This can definitely be cleaned up big time.
+  # TODO: This can definitely be cleaned up.
   method Run { path body {context {}} args } {
   
     if { $path ne {} } { 
@@ -284,10 +284,14 @@ class@ create ::saga::context {
   method Check_Parent_Task { child {path {}} } {
     if { $path eq {} } { set path [my$S Task_Path $child] }
     set parent [lrange $path 0 end-1]
-    if { [dict get $TASKS {*}$parent] eq {} } {
+    if { $parent ne {} && [dict exists $TASKS {*}$parent] && [dict get $TASKS {*}$parent] eq {} } {
       set parent_root [lrange $parent 0 end-1]
-      if { [dict exists $TASKS {*}$parent_root info done] } {
+      if { ! [dict exists $TASKS {*}$parent_root info] } {
+        dict unset TASKS {*}$parent_root
+        tailcall my$S Check_Parent_Task $child $parent_root
+      } elseif { [dict exists $TASKS {*}$parent_root info done] } {
         dict unset TASKS {*}[lrange $parent 0 end-1]
+        tailcall my$S Check_Parent_Task $child $parent_root
       }
     }
     if { $TASKS eq {} } { my$S Saga_Complete }
@@ -295,6 +299,30 @@ class@ create ::saga::context {
   
   method Saga_Complete {} {
     $R complete
+  }
+  
+  # Attempt to capture the pool id of a child
+  method GetPoolID { child } {
+    set tail [split [string map [list $S {}] [namespace tail $child]] _]
+    set e    [lsearch -glob $tail pool*]
+    set pool_id [lindex $tail $e]
+    lassign [split $pool_id -] pool_id pool_n
+    set pool_id [join [list {*}[lrange $tail 0 [expr { $e - 1 }]] $pool_id] _]
+    puts $pool_id
+    puts $pool_n
+    return [list $pool_id $pool_n]
+  }
+  
+  method BuildPoolID { child } {
+    return [string cat [string map [list $S {}] $child] _ pool[incr I]] 
+  }
+  
+  method PoolAggID { child } {
+    set tail [split [string map [list $S {}] [namespace tail $child]] _]
+    set e [lsearch $tail pool]
+    set agg_id [join [lrange $tail 0 [expr { $e + 1 }]] _]
+    append agg_id _ agg
+    return $agg_id
   }
   
 }

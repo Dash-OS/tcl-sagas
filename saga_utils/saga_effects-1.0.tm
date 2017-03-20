@@ -48,6 +48,7 @@ class@ create ::saga::effects {
   variable S
   variable AFTER_IDS
   variable TASKS
+  variable POOL
   
   # saga fork $script
   #
@@ -65,7 +66,8 @@ class@ create ::saga::effects {
   # This is true regardless of which part of our tree was cancelled, we always bubble down from 
   # the top during cancellation. 
   method fork { uid child args } {
-    my$S Run [namespace tail $child] [lindex $args end] {*}[lrange $args 0 end-1]
+    set child [expr { [string match ::* $child] ? [namespace tail $child] : $child }]
+    my$S Run $child [lindex $args end] {*}[lrange $args 0 end-1]
   }
   
   # saga spawn name $script {*}$args
@@ -135,6 +137,9 @@ class@ create ::saga::effects {
     }
   }
   
+  # This will iterate through the children of the given child and cancel each of them
+  # from the top down.  It iterates and continually calls cancel on their children until
+  # we reach the top then work our way down.
   method cancel_children { uid child signal } {
     my$S For_Children $child { id params } {
       if { [dict exists $params c] } { 
@@ -228,7 +233,9 @@ class@ create ::saga::effects {
   # saga await
   #
   # Pauses execution, expecting some inside source to awaken it such as an event.
-  method await { uid child } { return $S }
+  method await { uid child } { 
+    return $S
+  }
   
   # saga take MSG
   #
@@ -248,7 +255,7 @@ class@ create ::saga::effects {
     nsvar@$S [self] DISPATCH${S}
     if { ! [info exists DISPATCH${S}(${msg})] } { set DISPATCH${S}(${msg}) {} }
     lappend DISPATCH${S}(${msg}_listeners) $child
-    trace add variable  DISPATCH${S}(${msg}) write [list [namespace current]::my$S take_resolve $uid $child $msg $args]
+    trace add variable DISPATCH${S}(${msg}) write [list [namespace current]::my$S take_resolve $uid $child $msg $args]
     return $S
   }
   
@@ -287,8 +294,63 @@ class@ create ::saga::effects {
     tailcall coro inject $child [list set $as $value]
   }
   
-  method pool { uid child } {
-    
+  # creates $n forked workers which run the body. Unless we were to implement
+  # some sort of [Thread] compatiblity where workers could run in threads, I am 
+  # not sure how useful this would be.  However, in that case it could provide 
+  # 
+  method pool { uid child pool_args pool_context args } {
+    if { ! [info exists POOL] } { set POOL [dict create] }
+    set pool_id [my$S BuildPoolID $child]
+    set n    [ llength $pool_args ]
+    set args [ lassign $args pool_body agg_var aggregator]
+    dict set POOL [namespace tail $pool_id] info n $n
+    if { $agg_var ne {} && $aggregator ne {} } {
+      dict set POOL [namespace tail $pool_id] info [dict create \
+        va   [string trim $agg_var] \
+        ag   $aggregator \
+        n    $n \
+        pa   $pool_args
+      ]
+    }
+    set i 1
+    while { $i <= $n } {
+      my$S fork $uid ${pool_id}-$i [dict merge \
+        $pool_context \
+        [lindex $pool_args [expr { $i - 1 }]] \
+        [dict create pool_id [namespace tail $pool_id] pool_n $i]
+      ] {*}$args $pool_body
+      incr i
+    }
+  }
+  
+  method pool_check { uid child pool_id args } {
+    if { [dict exists $POOL $pool_id info n] && [dict exists $POOL $pool_id results] } {
+      set n       [dict get $POOL $pool_id info n]
+      set results [dict get $POOL $pool_id results]
+      if { [dict size $results] >= $n } {
+        if { [dict exists $POOL $pool_id info ag] } {
+          set agg_id [my$S PoolAggID $child]
+          set arg    [dict get $POOL $pool_id info va]
+          set script [dict get $POOL $pool_id info ag]
+          set pool_args [dict get $POOL $pool_id info pa]
+          dict unset POOL $pool_id
+          set i 0
+          foreach pool_arg $pool_args {
+            incr i 
+            dict set results $i args $pool_arg
+          }
+          my$S fork $uid $agg_id [dict create $arg $results pool_id $pool_id pool_n $n] $script
+        }
+      }
+    }
+  }
+  
+  method resolve { uid child args } {
+    if { ! [info exists POOL] } { set POOL [dict create] }
+    lassign [ my$S GetPoolID $child ] pool_id pool_n
+    dict set POOL $pool_id results $pool_n result $args
+    my$S pool_check $uid $child $pool_id
+    return 
   }
   
   # saga dispatch $msg ?...args?
@@ -422,6 +484,7 @@ class@ create ::saga::effects {
   # execution at the point in-which [saga complete] was called until any/all children
   # have completed as well.
   method complete { uid child {force_kill 0} args } {
+    puts "Complete $child"
     my$S Set_Task $child info done 1
     if { $force_kill } {
       my$S kill $uid $child
@@ -452,8 +515,10 @@ class@ create ::saga::effects {
   # coroutine all together, remove the coroutine from our $TASKS, then check to see 
   # if we can then kill the parent.
   method kill { uid child args } {
+    puts "Kill $child"
     rename $child {}
     my$S Remove_Task $child
+    puts $TASKS
   }
   
 }
