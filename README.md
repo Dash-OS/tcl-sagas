@@ -50,7 +50,7 @@ saga run {
     set foo "Hi Again!"
     # Almost every command in a saga is cooperative to the rest.  When you suspend 
     # in one fork, another will be serviced until we need to wake it up again.
-    saga wait 1 second ; # [saga wait 1000] works just fine as well.
+    saga sleep 1 second ; # [saga sleep 1000] works just fine as well.
     set foo "And Again!"
   }
   
