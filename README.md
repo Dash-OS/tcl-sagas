@@ -94,6 +94,16 @@ saga run {
 
 ## Saga Pool Example
 
+Below we have a slightly more advanced example where we are utilizing some of sagas 
+more powerful features such as [saga uplevel], [saga pool], [saga dispatch], and friends.
+
+With [saga pool], we take a list of dicts which represent the arguments. Each element 
+will create an independent fork of the worker.  If a result handler is provided it will 
+then be called once all workers in the pool have resolved their results.
+
+[saga] is meant to be a toolkit for handling these kinds of asynchronous data flows without 
+the complexity they may normally require. 
+ 
 ```tcl
 package require saga
 
