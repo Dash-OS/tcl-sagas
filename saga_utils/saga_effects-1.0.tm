@@ -215,6 +215,10 @@ class@ create ::saga::effects {
     dict set AFTER_IDS $uid [ after [my$S parse_time {*}$args] [list [namespace current]::my$S Resolve $uid $child] ]
     return $S
   }
+  # saga sleep $delay
+  #
+  # this may be a better term than [saga wait] - adding it as an alias for now
+  method sleep { uid child args } { tailcall my$S wait $uid $child {*}$args }
   
   method Resolve { uid child args } {
     dict unset AFTER_IDS $uid
