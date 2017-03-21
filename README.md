@@ -77,11 +77,6 @@ saga run HTTP {
   
   puts "[clock microseconds] | Saga Starts Evaluation"
   
-  try {
-    my test
-  } on error { result } {
-    puts "Error $result"
-  }
   # Create our default arguments which can be retrieved from our asynchronous
   # workers as-needed.
   set DefaultOptions [dict create \
