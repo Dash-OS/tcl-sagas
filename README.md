@@ -145,12 +145,17 @@ the complexity they may normally require.
 ```tcl
 package require saga
 
-puts "[clock milliseconds] | Running the Saga!"
+puts "[clock microseconds] | Running the Saga!"
 
 saga run HTTP {
   
-  puts "[clock milliseconds] | Saga Starts Evaluation"
+  puts "[clock microseconds] | Saga Starts Evaluation"
   
+  try {
+    my test
+  } on error { result } {
+    puts "Error $result"
+  }
   # Create our default arguments which can be retrieved from our asynchronous
   # workers as-needed.
   set DefaultOptions [dict create \
@@ -162,7 +167,7 @@ saga run HTTP {
   # the results from all before continuing.
   set RequestHandler {
     try {
-      puts "[clock milliseconds] | $pool_id-$pool_n | Request Handler Starts"
+      puts "[clock microseconds] | $pool_id-$pool_n | Request Handler Starts"
       if { ! [info exists url] } {
         saga resolve error "No URL Provided"
       } else {
@@ -171,7 +176,7 @@ saga run HTTP {
         set token [::http::geturl $url -command [saga self] -timeout $timeout]
         # Pause and wait for the http request to complete (or timeout)
         saga await
-        puts "[clock milliseconds] | $pool_id-$pool_n | Request Handler - Response Received"
+        puts "[clock microseconds] | $pool_id-$pool_n | Request Handler - Response Received"
         set status [::http::status $token]
         set ncode  [::http::ncode  $token]
         # For the example we will just capture the status
@@ -242,7 +247,7 @@ saga run HTTP {
 # We define this through the "options" dict's callback key.
 proc results {results options} {
   puts "------------------------------------------------"
-  puts "[clock milliseconds] | Results Callback Received"
+  puts "[clock microseconds] | Results Callback Received"
   puts "------------------------------------------------"
   puts "Results: $results"
   puts "Options: $options"
@@ -257,7 +262,7 @@ proc results {results options} {
 # We can setup multiple forks as we are continually servicing the [saga take] 
 # in a loop until we are explicitly cancelled.
 
-puts "[clock milliseconds] | Starting Request Dispatches"
+puts "[clock microseconds] | Starting Request Dispatches"
 
 saga dispatch HTTP REQUEST [dict create \
   timeout 5000 \
