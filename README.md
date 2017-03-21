@@ -18,6 +18,18 @@ I'm sure I will need to read, revise, and rewrite that to be more clear at some 
 but lets take a look at what tcl-saga looks like and hopefully it will become clear 
 quickly how this pattern can benefit you. 
 
+## Saga Globals
+
+Saga provides a few commands which can be called globally (from outside a saga's context) 
+to work with and manipulate sagas.
+
+ - `saga run`
+ - `saga dispatch`
+ - `saga take`
+ - `saga broadcast`
+ - `saga cancel`
+ - `saga exists`
+
 ## Saga Effects
 
 As a starting point for the documentation, [saga] defines the following "effects" which 
