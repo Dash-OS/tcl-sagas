@@ -18,6 +18,32 @@ I'm sure I will need to read, revise, and rewrite that to be more clear at some 
 but lets take a look at what tcl-saga looks like and hopefully it will become clear 
 quickly how this pattern can benefit you. 
 
+## Saga Effects
+
+As a starting point for the documentation, [saga] defines the following "effects" which 
+are available to any [saga] context.
+
+ - `saga fork`
+ - `saga spawn`
+ - `saga call`
+ - `saga sleep`
+ - `saga await`
+ - `saga after`
+ - `saga self`
+ - `saga pool`
+ - `saga cancel`
+ - `saga resolve`
+ - `saga dispatch`
+ - `saga take`
+ - `saga race`
+ - `saga vwait`
+ - `saga variable`
+ - `saga upvar`
+ - `saga uplevel`
+ - `saga level`
+ - `saga parent`
+ - `saga eval`
+
 ## Simple Saga Example
 
 So this example doesn't clearly show what is happening here, but it will have to do 
