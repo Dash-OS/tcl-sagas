@@ -234,30 +234,46 @@ saga dispatch HTTP REQUEST [dict create callback results] [list \
   [dict create url http://www.bing.com]
 ]
 
-# 1490052688335 | Running the Saga!
-# 1490052688336 | Starting Request Dispatches
-# 1490052688336 | Saga Starts Evaluation
-# 1490052688338 | 1_2_pool4-1 | Request Handler Starts
-# 1490052688346 | 1_2_pool4-2 | Request Handler Starts
-# 1490052688347 | 1_3_pool7-1 | Request Handler Starts
-# 1490052688351 | 1_3_pool7-2 | Request Handler Starts
-# 1490052688406 | 1_2_pool4-1 | Request Handler - Response Received
-# 1490052688419 | 1_3_pool7-1 | Request Handler - Response Received
-# 1490052688437 | 1_3_pool7-2 | Request Handler - Response Received
+```
+
+So now lets look at an example output.  In this example it would appear we had 
+some network latency with the first request.  This ends up showing what pool is 
+doing for us since it waits for the results of the cluster before reporting to 
+the callback.
+
+We could, of course, decide we would rather receive responses as quickly as
+possible in which case we simply would call the callback from each pool script and
+not define a ResultHandler at all.  In this case we do not aggregate the results 
+at all.
+
+> Timestamps are seen in `[clock microseconds]`.
+
+```tcl
+###### Example Output
+#
+# 1490053630766088 | Running the Saga!
+# 1490053630767397 | Starting Request Dispatches
+# 1490053630767902 | Saga Starts Evaluation
+# 1490053630770704 | 1_2_pool4-1 | Request Handler Starts
+# 1490053630775409 | 1_2_pool4-2 | Request Handler Starts
+# 1490053630777093 | 1_3_pool7-1 | Request Handler Starts
+# 1490053630778764 | 1_3_pool7-2 | Request Handler Starts
+# 1490053630834844 | 1_2_pool4-1 | Request Handler - Response Received
+# 1490053630844328 | 1_3_pool7-1 | Request Handler - Response Received
+# 1490053630856961 | 1_3_pool7-2 | Request Handler - Response Received
 # ------------------------------------------------
-# 1490052688438 | Results Callback Received
+# 1490053630858315 | Results Callback Received
 # ------------------------------------------------
 # Results: 1 {result {ok 301 {Data Would Be Here}} args {url http://www.yahoo.com}} 
 #          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
 # Options: timeout 10000 callback results
 # ------------------------------------------------
-# 1490052688446 | 1_2_pool4-2 | Request Handler - Response Received
+# 1490053630860929 | 1_2_pool4-2 | Request Handler - Response Received
 # ------------------------------------------------
-# 1490052688448 | Results Callback Received
+# 1490053630862089 | Results Callback Received
 # ------------------------------------------------
 # Results: 1 {result {ok 200 {Data Would Be Here}} args {url http://www.google.com}} 
 #          2 {result {ok 200 {Data Would Be Here}} args {url http://www.bing.com}}
 # Options: timeout 5000 callback results
 # ------------------------------------------------
-#
 ```
