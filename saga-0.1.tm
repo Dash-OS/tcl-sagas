@@ -16,7 +16,7 @@ proc ::saga::auto_id {} { return saga_[incr [namespace current]::I] }
 
 proc ::saga {cmd args} { 
   if { ! [string match *$::saga::SAGA_SYMBOL [info coroutine]] } {
-    {*}::saga::$cmd {*}$args 
+    return [ {*}::saga::$cmd {*}$args ] 
   } else {
     tailcall [namespace parent [namespace qualifiers [info coroutine]]] effect $cmd {*}$args
   }
@@ -31,8 +31,7 @@ proc ::saga::run {args} {
     set body $name
     set name $id
   }
-  ::saga::runner create ::saga::sagas::$id $name $body {*}$args
-  return $name
+  return [ ::saga::runner create ::saga::sagas::$id $name $body {*}$args ]
 }
 
 proc ::saga::cancel args {

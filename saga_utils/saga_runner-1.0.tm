@@ -4,6 +4,7 @@ class@ create ::saga::runner {
   # so that it can be accessed by any instances of our class.
   ::variable REGISTRY {}
   
+  variable READY
   # Our Sagas name
   variable NAME
   
@@ -52,6 +53,7 @@ class@ create ::saga::runner {
 
   constructor {name body args} {
     # Capture $SAGA_SYMBOL from our parents namespace.
+    set READY 0
     nsvar SAGA_SYMBOL
     set S    _${SAGA_SYMBOL}
     set NAME $name
@@ -70,6 +72,16 @@ class@ create ::saga::runner {
     ::saga::context create root $S [self] [namespace parent [namespace parent]] $body {*}$args
   }
   
+  method ready {} { set READY 1 }
+  
+  method WaitReady {} {
+    if { $READY } { return 1 }
+    set id [ after 10000 [list set [namespace current]::READY 0] ]
+    vwait [namespace current]::READY
+    after cancel $id 
+    return $READY
+  }
+  
   # When our context calls "complete" we will remove ourselves and all children
   # from the stack
   method complete {} {
@@ -77,6 +89,11 @@ class@ create ::saga::runner {
     [self] destroy
   }
   
+  method dispatch { {msg {}} args } {
+    if { [my WaitReady] } {
+     root external_dispatch $msg {*}$args 
+    }
+  }
   
 }
 
@@ -105,7 +122,6 @@ class@ create ::saga::context {
   
   
   constructor {s r ns body args} {
-  
     set S $s
     set I 0
     set U 0
@@ -178,6 +194,7 @@ class@ create ::saga::context {
   method saga args {
     set response {}
     lassign [ ::yield ] child path
+    after 0 [list $R ready]
     while 1 {
       try {
         if { ! [string equal $response $S ] } {

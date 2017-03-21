@@ -276,7 +276,7 @@ class@ create ::saga::effects {
     if { [ set DISPATCH${S}(${msg}_listeners) [lsearch -all -inline -not -exact [set DISPATCH${S}(${msg}_listeners)] $child] ] eq {} } {
       my$S take_cleanup $uid $child $msg $value
     }
-    $child $value
+    $child {*}$value
   }
   
   method take_cleanup { uid child msg value } {
@@ -361,14 +361,15 @@ class@ create ::saga::effects {
   #
   # When called, the response to the dispatch is a number indicating how
   # many listeners received the dispatch.
-  method dispatch { uid child msg args } {
+  method dispatch { uid child {msg {}} args } {
     dict set AFTER_IDS $uid [after 0 [list [namespace current]::my$S dispatch_resolve $uid $child $msg {*}$args]]
     return $S
   }
   
-  method external_dispatch { msg args } {
+  method external_dispatch { {msg {}} args } {
     set uid [my$S uid]
-    dict set AFTER_IDS $uid [after 0 [list [namespace current]::my$S dispatch_resolve $uid {} $msg {*}$args]]
+    #dict set AFTER_IDS $uid [after 0 [list [namespace current]::my$S dispatch_resolve $uid {} $msg {*}$args]]
+    return [my$S dispatch_resolve $uid {} $msg {*}$args]
   }
   
   method dispatch_resolve { uid child msg args } {
