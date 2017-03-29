@@ -56,6 +56,20 @@ are available to any [saga] context.
  - `saga parent`
  - `saga eval`
 
+## Throttle Request Example
+
+```tcl
+# Take at most 1 request per second
+saga run {
+  while 1 {
+    take REQUEST {
+      puts "Trigger $REQUEST"
+    }
+    saga sleep 1000
+  }
+}
+```
+
 ## Saga Pool Example
 
 Below we have a slightly more advanced example where we are utilizing some of sagas 

@@ -126,15 +126,21 @@ class@ create ::saga::effects {
   #
   # Trapping a cancellation will not stop the cancellation itself.  Once a cancelled
   # saga returns to the coordinator it will be removed and cancellation will continue.
-  method cancel { uid child {coro {}} {reason {}} } {
-    if { $coro eq {} } { set coro $child }
-    set coro [my$S ResolveChild $coro]
-    if { [info commands $coro] ne {} } {
-      if { $reason eq {} } { set reason "Cancelled by: [namespace tail $child] via $uid" }
-      set signal [list throw cancel $reason]
-      my$S cancel_children $uid $coro $signal
-      my$S cancel_eval $uid $coro $signal
+  method cancel { uid child {coro self} {reason {}} } {
+    if { $coro eq {} } { return }
+    if { $coro eq "self" } { set coro $child } elseif { [dict exists $AFTER_IDS $coro] } {
+      after cancel [dict get $AFTER_IDS $coro]
+      dict unset AFTER_IDS $coro
+    } else {
+      set coro [my$S ResolveChild $coro]
+      if { [info commands $coro] ne {} } {
+        if { $reason eq {} } { set reason "Cancelled by: [namespace tail $child] via $uid" }
+        set signal [list throw cancel $reason]
+        my$S cancel_children $uid $coro $signal
+        my$S cancel_eval $uid $coro $signal
+      }
     }
+    return
   }
   
   # This will iterate through the children of the given child and cancel each of them
@@ -189,7 +195,7 @@ class@ create ::saga::effects {
     if { ! [string equal $then then] } { set body $then }
     set afterID [ after [my$S parse_time $delay] [list [namespace current]::my$S After $uid $child $body] ]
     dict set AFTER_IDS $uid $afterID
-    return $afterID
+    return $uid
   }
 
   method After { uid child body } {
@@ -375,11 +381,14 @@ class@ create ::saga::effects {
   method dispatch_resolve { uid child msg args } {
     dict unset AFTER_IDS $uid
     nsvar@$S [self] DISPATCH${S}
+  
     if { [info exists DISPATCH${S}(${msg})] } {
+      set listeners [llength DISPATCH${S}(${msg}_listeners)]
       set DISPATCH${S}(${msg}_sender) $child
       set DISPATCH${S}(${msg}) $args
-    }
+    } else { set listeners 0 }
     if { $child ne {} } { $child }
+    return $listeners
   }
   
   # allows vwaiting against a [saga variable] value

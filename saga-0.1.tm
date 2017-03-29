@@ -34,6 +34,8 @@ proc ::saga::run {args} {
   return [ ::saga::runner create ::saga::sagas::$id $name $body {*}$args ]
 }
 
+proc ::saga::
+
 proc ::saga::cancel args {
   
 }
