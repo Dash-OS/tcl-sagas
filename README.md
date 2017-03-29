@@ -62,9 +62,12 @@ are available to any [saga] context.
 # Take at most 1 request per second
 saga run {
   while 1 {
+    # wait here until we receive a REQUEST dispatch
     take REQUEST {
+      # This occurs in its own forked context
       puts "Trigger $REQUEST"
     }
+    # sleep for 1  second, any dispatched messages will be ignored in the meantime
     saga sleep 1000
   }
 }
