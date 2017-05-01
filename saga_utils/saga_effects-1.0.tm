@@ -369,7 +369,7 @@ class@ create ::saga::effects {
   # many listeners received the dispatch.
   method dispatch { uid child {msg {}} args } {
     dict set AFTER_IDS $uid [after 0 [list [namespace current]::my$S dispatch_resolve $uid $child $msg {*}$args]]
-    return $S
+    return
   }
   
   method external_dispatch { {msg {}} args } {
